@@ -13,11 +13,12 @@ from .tower import TOWER_TYPES, Tower
 class GameWidget(QtWidgets.QWidget):
     """Widget that renders the pygame scene."""
 
-    tower_selected = QtCore.Signal(Tower)
+    tower_selected = QtCore.Signal(object)
 
     def __init__(self, game_state: GameState, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self.game_state = game_state
+        self.selected_tower: Optional[Tower] = None
         self.setFixedSize(game_state.level.pixel_width, game_state.level.pixel_height)
         self.surface = pygame.Surface((game_state.level.pixel_width, game_state.level.pixel_height))
         self.timer = QtCore.QTimer(self)
@@ -86,6 +87,8 @@ class GameWidget(QtWidgets.QWidget):
         for tower in self.game_state.towers:
             pygame.draw.circle(self.surface, tower.base_stats.color, tower.position, 15)
             pygame.draw.circle(self.surface, (20, 20, 30), tower.position, 15, 2)
+            if tower == self.selected_tower:
+                pygame.draw.circle(self.surface, (255, 255, 255), tower.position, 20, 2)
 
     def draw_enemies(self) -> None:
         for enemy in self.game_state.enemies:
@@ -104,6 +107,15 @@ class GameWidget(QtWidgets.QWidget):
             pygame.draw.circle(self.surface, (255, 200, 120), (int(projectile.position[0]), int(projectile.position[1])), 3)
 
     def draw_effects(self) -> None:
+        for tower in self.game_state.towers:
+            if tower.base_stats.laser and tower.target and tower.target.is_alive():
+                pygame.draw.line(
+                    self.surface,
+                    (255, 120, 200),
+                    tower.position,
+                    (int(tower.target.position[0]), int(tower.target.position[1])),
+                    3,
+                )
         for enemy in self.game_state.enemies:
             if enemy.stats.flying:
                 continue
@@ -121,7 +133,14 @@ class GameWidget(QtWidgets.QWidget):
         if not self.game_state.place_tower(grid_x, grid_y):
             tower = self.find_tower(grid_x, grid_y)
             if tower:
+                self.set_selected_tower(tower)
                 self.tower_selected.emit(tower)
+            else:
+                self.set_selected_tower(None)
+                self.tower_selected.emit(None)
+        else:
+            self.set_selected_tower(None)
+            self.tower_selected.emit(None)
 
     def find_tower(self, grid_x: int, grid_y: int) -> Optional[Tower]:
         pos = self.game_state.grid_to_pixel(grid_x, grid_y)
@@ -129,6 +148,9 @@ class GameWidget(QtWidgets.QWidget):
             if tower.position == pos:
                 return tower
         return None
+
+    def set_selected_tower(self, tower: Optional[Tower]) -> None:
+        self.selected_tower = tower
 
 
 class GameHud(QtWidgets.QWidget):
@@ -139,6 +161,7 @@ class GameHud(QtWidgets.QWidget):
     wave_clicked = QtCore.Signal()
     exit_clicked = QtCore.Signal()
     upgrade_requested = QtCore.Signal(str)
+    sell_requested = QtCore.Signal()
 
     def __init__(self, game_state: GameState, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
@@ -148,6 +171,7 @@ class GameHud(QtWidgets.QWidget):
         self.money_label = QtWidgets.QLabel()
         self.hp_label = QtWidgets.QLabel()
         self.wave_label = QtWidgets.QLabel()
+        self.selected_label = QtWidgets.QLabel("Башня: не выбрана")
 
         self.tower_buttons = {}
         tower_box = QtWidgets.QGroupBox("Башни")
@@ -165,6 +189,8 @@ class GameHud(QtWidgets.QWidget):
         self.wave_button.clicked.connect(self.wave_clicked.emit)
         self.exit_button = QtWidgets.QPushButton("В меню")
         self.exit_button.clicked.connect(self.exit_clicked.emit)
+        self.sell_button = QtWidgets.QPushButton("Разобрать")
+        self.sell_button.clicked.connect(self.sell_requested.emit)
 
         upgrade_box = QtWidgets.QGroupBox("Улучшения")
         upgrade_layout = QtWidgets.QVBoxLayout()
@@ -183,11 +209,13 @@ class GameHud(QtWidgets.QWidget):
         layout.addWidget(self.money_label)
         layout.addWidget(self.hp_label)
         layout.addWidget(self.wave_label)
+        layout.addWidget(self.selected_label)
         layout.addWidget(self.pause_button)
         layout.addWidget(self.wave_button)
         layout.addWidget(self.exit_button)
         layout.addWidget(tower_box)
         layout.addWidget(upgrade_box)
+        layout.addWidget(self.sell_button)
         layout.addStretch()
         self.setFixedWidth(220)
         self.update_labels()
@@ -199,8 +227,22 @@ class GameHud(QtWidgets.QWidget):
 
     def set_selected_tower(self, tower: Optional[Tower]) -> None:
         self.selected_tower = tower
+        self.refresh()
 
     def refresh(self) -> None:
         self.update_labels()
         self.wave_button.setEnabled(not self.game_state.wave_in_progress)
         self.pause_button.setText("Продолжить" if self.game_state.paused else "Пауза")
+        has_tower = self.selected_tower is not None
+        if has_tower:
+            self.selected_label.setText(
+                f"Башня: {self.selected_tower.base_stats.name} (ур. {self.selected_tower.level})"
+            )
+            self.sell_button.setText(f"Разобрать (+{self.selected_tower.sell_value()})")
+        else:
+            self.selected_label.setText("Башня: не выбрана")
+            self.sell_button.setText("Разобрать")
+        self.upgrade_damage.setEnabled(has_tower)
+        self.upgrade_rate.setEnabled(has_tower)
+        self.upgrade_range.setEnabled(has_tower)
+        self.sell_button.setEnabled(has_tower)

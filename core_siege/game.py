@@ -140,6 +140,11 @@ class GameState:
             tower.upgrade_range()
         return True
 
+    def sell_tower(self, tower: Tower) -> None:
+        if tower in self.towers:
+            self.money += tower.sell_value()
+            self.towers.remove(tower)
+
     def grid_to_pixel(self, grid_x: int, grid_y: int) -> Tuple[int, int]:
         return (
             grid_x * self.level.cell_size + self.level.cell_size // 2,

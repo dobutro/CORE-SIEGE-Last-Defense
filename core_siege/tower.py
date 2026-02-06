@@ -26,16 +26,16 @@ class TowerStats:
 
 
 TOWER_TYPES: Dict[str, TowerStats] = {
-    "пулемётная": TowerStats("Пулемётная", 6, 110, 4.0, (120, 200, 255), 45, projectile_speed=180),
-    "лазерная": TowerStats("Лазерная", 12, 100, 6.0, (255, 80, 200), 70, laser=True),
+    "пулемётная": TowerStats("Пулемётная", 6, 150, 4.0, (120, 200, 255), 45, projectile_speed=200),
+    "лазерная": TowerStats("Лазерная", 10, 140, 6.0, (255, 80, 200), 70, laser=True),
     "замедляющая": TowerStats(
         "Замедляющая",
         2,
-        90,
+        120,
         1.8,
         (120, 255, 160),
         55,
-        projectile_speed=140,
+        projectile_speed=170,
         slow_factor=0.6,
         slow_duration=2.5,
         ground_only=True,
@@ -43,11 +43,11 @@ TOWER_TYPES: Dict[str, TowerStats] = {
     "ракетная": TowerStats(
         "Ракетная",
         30,
-        130,
+        170,
         0.8,
         (255, 160, 80),
         90,
-        projectile_speed=140,
+        projectile_speed=160,
         splash_radius=40,
         ground_only=True,
     ),
@@ -63,6 +63,7 @@ class Tower:
         self.level = 1
         self.cooldown = 0.0
         self.target: Optional[Enemy] = None
+        self.invested = tower_type.cost
 
         self.damage_bonus = 0.0
         self.rate_bonus = 0.0
@@ -128,12 +129,18 @@ class Tower:
 
     def upgrade_damage(self) -> None:
         self.damage_bonus += self.base_stats.damage * 0.3
+        self.invested += self.upgrade_cost()
         self.level += 1
 
     def upgrade_rate(self) -> None:
         self.rate_bonus += self.base_stats.rate * 0.2
+        self.invested += self.upgrade_cost()
         self.level += 1
 
     def upgrade_range(self) -> None:
         self.range_bonus += self.base_stats.range * 0.1
+        self.invested += self.upgrade_cost()
         self.level += 1
+
+    def sell_value(self) -> int:
+        return int(self.invested * 0.6)

@@ -34,6 +34,7 @@ class GameScreen(QtWidgets.QWidget):
         self.hud.wave_clicked.connect(self.game_state.start_wave)
         self.hud.exit_clicked.connect(self.exit_to_menu.emit)
         self.hud.upgrade_requested.connect(self.on_upgrade_requested)
+        self.hud.sell_requested.connect(self.on_sell_requested)
 
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.tick)
@@ -52,12 +53,21 @@ class GameScreen(QtWidgets.QWidget):
         if tower:
             self.game_state.upgrade_tower(tower, attribute)
 
+    def on_sell_requested(self) -> None:
+        tower = self.hud.selected_tower
+        if tower:
+            self.game_state.sell_tower(tower)
+            self.scene.set_selected_tower(None)
+            self.hud.set_selected_tower(None)
+
     def reset(self, level: Level) -> None:
         self.game_state = GameState(level)
         self.scene.game_state = self.game_state
         self.hud.game_state = self.game_state
         self.scene.setFixedSize(self.game_state.level.pixel_width, self.game_state.level.pixel_height)
         self.scene.surface = pygame.Surface((self.game_state.level.pixel_width, self.game_state.level.pixel_height))
+        self.scene.set_selected_tower(None)
+        self.hud.set_selected_tower(None)
         self.hud.refresh()
 
 
