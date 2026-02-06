@@ -112,6 +112,8 @@ class GameState:
                         self.apply_fire_effect(tower, hit_enemy)
                 if not projectile.pierces:
                     projectile.alive = False
+                    if projectile in self.projectiles:
+                        self.projectiles.remove(projectile)
 
         self.apply_healers()
 

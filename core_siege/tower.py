@@ -78,7 +78,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
     ),
     "даль": TowerStats(
         "Даль",
-        20,
+        28,
         260,
         0.7,
         (210, 200, 120),
@@ -145,6 +145,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         aiming_speed=7.0,
         multi_shot=2,
         spread_deg=4.0,
+        ground_only=True,
     ),
     "огненная": TowerStats(
         "Огненная турель",
@@ -159,6 +160,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         aiming_speed=6.0,
         burn_duration=3.0,
         burn_dps=4.0,
+        ground_only=True,
     ),
 }
 

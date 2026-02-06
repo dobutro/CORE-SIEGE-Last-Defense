@@ -56,9 +56,9 @@ class MainMenu(QtWidgets.QWidget):
         width = max(1, self.width())
         height = max(1, self.height())
         self.paths = [
-            [(0, height * 0.35), (width * 0.5, height * 0.35), (width, height * 0.35)],
-            [(0, height * 0.55), (width * 0.3, height * 0.55), (width * 0.7, height * 0.2), (width, height * 0.2)],
-            [(0, height * 0.75), (width * 0.4, height * 0.75), (width * 0.6, height * 0.6), (width, height * 0.6)],
+            [(0, height * 0.18), (width * 0.5, height * 0.18), (width, height * 0.18)],
+            [(0, height * 0.26), (width * 0.3, height * 0.26), (width * 0.7, height * 0.12), (width, height * 0.12)],
+            [(0, height * 0.32), (width * 0.4, height * 0.32), (width * 0.6, height * 0.22), (width, height * 0.22)],
         ]
         colors = [(180, 220, 255), (200, 200, 200), (255, 220, 100)]
         for i in range(12):
@@ -68,8 +68,8 @@ class MainMenu(QtWidgets.QWidget):
                     "path": path,
                     "segment": 0,
                     "t": (i * 0.1) % 1.0,
-                    "speed": 0.12 + i * 0.01,
-                    "size": 10 + (i % 3) * 2,
+                    "speed": 0.2 + i * 0.015,
+                    "size": 6 + (i % 3),
                     "color": colors[i % len(colors)],
                 }
             )
