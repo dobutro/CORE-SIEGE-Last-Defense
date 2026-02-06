@@ -31,6 +31,7 @@ class TowerStats:
     spread_deg: float = 0.0
     warmup_time: float = 0.0
     weapon_class: int = 1
+    aiming_speed: float = 3.0
 
 
 TOWER_TYPES: Dict[str, TowerStats] = {
@@ -44,6 +45,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         projectile_speed=200,
         projectile_radius=3,
         upgrade_order=("rate", "damage", "range"),
+        aiming_speed=8.0,
     ),
     "лазерная": TowerStats(
         "Лазерная",
@@ -55,6 +57,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         laser=True,
         ground_only=True,
         upgrade_order=("damage", "range"),
+        aiming_speed=7.0,
     ),
     "зенит": TowerStats(
         "Зенит",
@@ -69,6 +72,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         upgrade_order=("rate", "damage", "range"),
         multi_shot=3,
         spread_deg=10.0,
+        aiming_speed=10.0,
     ),
     "даль": TowerStats(
         "Даль",
@@ -77,10 +81,11 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         0.7,
         (210, 200, 120),
         85,
-        projectile_speed=190,
+        projectile_speed=260,
         projectile_radius=4,
         ground_only=True,
         upgrade_order=("range", "damage"),
+        aiming_speed=4.5,
     ),
     "замедляющая": TowerStats(
         "Замедляющая",
@@ -95,6 +100,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         slow_duration=2.5,
         ground_only=True,
         upgrade_order=("range", "rate"),
+        aiming_speed=4.5,
     ),
     "ракетная": TowerStats(
         "Ракетная",
@@ -108,19 +114,21 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         splash_radius=40,
         ground_only=True,
         upgrade_order=("damage", "range"),
+        aiming_speed=4.0,
     ),
     "испепеление": TowerStats(
         "Испепеление",
-        16,
+        14,
         180,
-        7.5,
-        (20, 20, 20),
+        12.5,
+        (120, 120, 120),
         160,
         projectile_speed=320,
         projectile_radius=3,
         upgrade_order=("damage", "rate"),
         warmup_time=1.0,
         weapon_class=2,
+        aiming_speed=5.0,
     ),
 }
 
@@ -137,6 +145,7 @@ class Tower:
         self.invested = tower_type.cost
         self.warmup_timer = 0.0
         self.is_warming = False
+        self.angle = 0.0
 
         self.damage_bonus = 0.0
         self.rate_bonus = 0.0
@@ -162,8 +171,12 @@ class Tower:
             self.warmup_timer = 0.0
             return projectiles
 
+        desired_angle = self.angle_to(self.target.center())
+        aligned = self.update_aim(desired_angle, dt)
+
         if self.base_stats.laser:
-            self.target.apply_damage(self.total_damage() * dt)
+            if aligned:
+                self.target.apply_damage(self.total_damage() * dt)
             return projectiles
 
         if self.base_stats.warmup_time > 0 and not self.is_warming:
@@ -176,7 +189,7 @@ class Tower:
                 return projectiles
             self.is_warming = False
 
-        if self.cooldown <= 0:
+        if aligned and self.cooldown <= 0:
             self.cooldown = 1.0 / self.total_rate()
             projectiles.extend(self.create_projectiles(self.target))
         return projectiles
@@ -212,6 +225,28 @@ class Tower:
         dx = point[0] - other[0]
         dy = point[1] - other[1]
         return (dx**2 + dy**2) ** 0.5
+
+    def angle_to(self, point: Tuple[float, float]) -> float:
+        dx = point[0] - self.position[0]
+        dy = point[1] - self.position[1]
+        return math.atan2(dy, dx)
+
+    def update_aim(self, desired: float, dt: float) -> bool:
+        diff = self.normalize_angle(desired - self.angle)
+        max_step = self.base_stats.aiming_speed * dt
+        if abs(diff) <= max_step:
+            self.angle = desired
+        else:
+            self.angle += max_step if diff > 0 else -max_step
+        self.angle = self.normalize_angle(self.angle)
+        return abs(self.normalize_angle(desired - self.angle)) <= math.radians(6)
+
+    def normalize_angle(self, angle: float) -> float:
+        while angle > math.pi:
+            angle -= 2 * math.pi
+        while angle < -math.pi:
+            angle += 2 * math.pi
+        return angle
 
     def upgrade_cost(self) -> int:
         return int(self.base_stats.cost * (1.5 ** self.level))
@@ -255,13 +290,7 @@ class Tower:
         return int(self.invested * 0.6)
 
     def create_projectiles(self, target: Enemy) -> List[Projectile]:
-        tx, ty = target.center()
-        dx = tx - self.position[0]
-        dy = ty - self.position[1]
-        dist = math.hypot(dx, dy)
-        if dist == 0:
-            dist = 1.0
-        direction = (dx / dist, dy / dist)
+        direction = (math.cos(self.angle), math.sin(self.angle))
         projectiles: List[Projectile] = []
         shots = self.base_stats.multi_shot
         spread = math.radians(self.base_stats.spread_deg)
@@ -280,6 +309,8 @@ class Tower:
                     damage=self.total_damage(),
                     splash_radius=self.base_stats.splash_radius,
                     radius=self.base_stats.projectile_radius,
+                    can_hit_flying=not self.base_stats.ground_only,
+                    can_hit_ground=not self.base_stats.flying_only,
                 )
             )
         return projectiles

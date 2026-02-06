@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from .level import Level
 
@@ -15,8 +15,10 @@ class MainMenu(QtWidgets.QWidget):
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
-        title = QtWidgets.QLabel("CORE SIEGE")
-        title.setStyleSheet("font-size: 26px; font-weight: bold;")
+        self.title = QtWidgets.QLabel("CORE SIEGE: Last Defense")
+        self.title.setStyleSheet("font-size: 26px; font-weight: bold;")
+        self.subtitle = QtWidgets.QLabel("Уровни • Изученные юниты • Настройки")
+        self.subtitle.setStyleSheet("font-size: 14px; color: #cfcfcf;")
 
         play_button = QtWidgets.QPushButton("Играть")
         upgrades_button = QtWidgets.QPushButton("Улучшения")
@@ -28,12 +30,57 @@ class MainMenu(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addStretch()
-        layout.addWidget(title, alignment=QtCore.Qt.AlignCenter)
+        layout.addWidget(self.title, alignment=QtCore.Qt.AlignCenter)
+        layout.addSpacing(8)
+        layout.addWidget(self.subtitle, alignment=QtCore.Qt.AlignCenter)
         layout.addSpacing(20)
         layout.addWidget(play_button)
         layout.addWidget(upgrades_button)
         layout.addWidget(exit_button)
         layout.addStretch()
+
+        self.units: List[dict] = []
+        self.spawn_menu_units()
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.timer.start(40)
+
+    def spawn_menu_units(self) -> None:
+        self.units = []
+        width = max(1, self.width())
+        height = max(1, self.height())
+        colors = [(180, 220, 255), (200, 200, 200), (255, 220, 100)]
+        for i in range(10):
+            self.units.append(
+                {
+                    "x": (i * 120) % width,
+                    "y": 80 + (i % 4) * 60,
+                    "speed": 25 + i * 3,
+                    "size": 10 + (i % 3) * 2,
+                    "color": colors[i % len(colors)],
+                }
+            )
+
+    def tick(self) -> None:
+        width = max(1, self.width())
+        for unit in self.units:
+            unit["x"] += unit["speed"] * 0.04
+            if unit["x"] > width + 40:
+                unit["x"] = -40
+        self.update()
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.spawn_menu_units()
+
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+        super().paintEvent(event)
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        for unit in self.units:
+            painter.setBrush(QtGui.QColor(*unit["color"]))
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.drawEllipse(QtCore.QPointF(unit["x"], unit["y"]), unit["size"], unit["size"])
 
 
 class MapSelectMenu(QtWidgets.QWidget):

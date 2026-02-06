@@ -5,6 +5,7 @@ from typing import Optional
 
 import pygame
 from PySide6 import QtCore, QtGui, QtWidgets
+import math
 
 from .game import GameState
 from .tower import TOWER_TYPES, Tower
@@ -127,6 +128,14 @@ class GameWidget(QtWidgets.QWidget):
             )
 
     def draw_effects(self) -> None:
+        if self.selected_tower:
+            pygame.draw.circle(
+                self.surface,
+                (180, 180, 180),
+                (int(self.selected_tower.position[0]), int(self.selected_tower.position[1])),
+                int(self.selected_tower.total_range()),
+                1,
+            )
         for tower in self.game_state.towers:
             if tower.base_stats.laser and tower.target and tower.target.is_alive():
                 pygame.draw.line(
@@ -170,12 +179,15 @@ class GameWidget(QtWidgets.QWidget):
     def draw_tower_shape(self, tower: Tower) -> None:
         x, y = tower.position
         radius = 15
-        color = (120, 20, 20) if tower.is_warming else tower.base_stats.color
+        color = tower.base_stats.color
         outline = (20, 20, 30)
-        if tower.base_stats.weapon_class == 2:
-            self.draw_class_two_shape(tower, (int(x), int(y)), radius, color, outline)
-        else:
-            self.draw_class_one_shape(tower, (int(x), int(y)), radius, color, outline)
+        self.draw_class_one_shape(tower, (int(x), int(y)), radius, color, outline)
+        self.draw_tower_barrel(tower, (int(x), int(y)), radius)
+        if tower.base_stats.name == "Испепеление":
+            square_color = (140, 20, 20) if tower.is_warming else (70, 70, 70)
+            inner = pygame.Rect(0, 0, radius, radius)
+            inner.center = (int(x), int(y))
+            pygame.draw.rect(self.surface, square_color, inner)
 
     def draw_class_one_shape(
         self,
@@ -203,46 +215,11 @@ class GameWidget(QtWidgets.QWidget):
             pygame.draw.polygon(self.surface, color, points)
             pygame.draw.polygon(self.surface, outline, points, 2)
 
-    def draw_class_two_shape(
-        self,
-        tower: Tower,
-        center: tuple[int, int],
-        radius: int,
-        color: tuple[int, int, int],
-        outline: tuple[int, int, int],
-    ) -> None:
-        if tower.base_stats.ground_only:
-            points = [
-                (center[0] + radius, center[1]),
-                (center[0] + radius // 2, center[1] - radius),
-                (center[0] - radius // 2, center[1] - radius),
-                (center[0] - radius, center[1]),
-                (center[0] - radius // 2, center[1] + radius),
-                (center[0] + radius // 2, center[1] + radius),
-            ]
-            pygame.draw.polygon(self.surface, color, points)
-            pygame.draw.polygon(self.surface, outline, points, 2)
-        elif tower.base_stats.flying_only:
-            top_width = radius
-            bottom_width = radius * 2
-            height = radius * 2
-            points = [
-                (center[0] - top_width // 2, center[1] - height // 2),
-                (center[0] + top_width // 2, center[1] - height // 2),
-                (center[0] + bottom_width // 2, center[1] + height // 2),
-                (center[0] - bottom_width // 2, center[1] + height // 2),
-            ]
-            pygame.draw.polygon(self.surface, color, points)
-            pygame.draw.polygon(self.surface, outline, points, 2)
-        else:
-            points = [
-                (center[0], center[1] - radius - 4),
-                (center[0] + radius + 4, center[1]),
-                (center[0], center[1] + radius + 4),
-                (center[0] - radius - 4, center[1]),
-            ]
-            pygame.draw.polygon(self.surface, color, points)
-            pygame.draw.polygon(self.surface, outline, points, 2)
+    def draw_tower_barrel(self, tower: Tower, center: tuple[int, int], radius: int) -> None:
+        length = radius + 6
+        end_x = center[0] + int(math.cos(tower.angle) * length)
+        end_y = center[1] + int(math.sin(tower.angle) * length)
+        pygame.draw.line(self.surface, (230, 230, 230), center, (end_x, end_y), 3)
 
 
 class GameHud(QtWidgets.QWidget):
@@ -271,6 +248,8 @@ class GameHud(QtWidgets.QWidget):
         for key, stats in TOWER_TYPES.items():
             button = QtWidgets.QPushButton(f"{stats.name} ({stats.cost})")
             button.clicked.connect(lambda _, k=key: self.tower_changed.emit(k))
+            if stats.weapon_class == 2:
+                button.setStyleSheet("border: 2px solid #f2d34a;")
             tower_layout.addWidget(button)
             self.tower_buttons[key] = button
         tower_box.setLayout(tower_layout)

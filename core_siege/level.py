@@ -34,8 +34,14 @@ def build_levels(cell_size: int) -> List[Level]:
     desert_path = [(0, 5), (15, 5)]
     maze_path = [(0, 2), (5, 2), (5, 9), (10, 9), (10, 4), (15, 4)]
     city_path = [(0, 3), (6, 3), (6, 8), (15, 8)]
+    tundra_path = [(0, 6), (7, 6), (7, 2), (15, 2)]
+    canyon_path = [(0, 10), (4, 10), (4, 5), (11, 5), (11, 9), (15, 9)]
+    factory_path = [(0, 4), (3, 4), (3, 8), (8, 8), (8, 3), (15, 3)]
     return [
         Level("Пустыня", 16, 12, cell_size, desert_path),
         Level("Лабиринт", 16, 12, cell_size, maze_path),
         Level("Город", 16, 12, cell_size, city_path),
+        Level("Тундра", 16, 12, cell_size, tundra_path),
+        Level("Каньон", 16, 12, cell_size, canyon_path),
+        Level("Фабрика", 16, 12, cell_size, factory_path),
     ]

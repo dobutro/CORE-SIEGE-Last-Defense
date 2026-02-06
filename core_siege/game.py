@@ -97,6 +97,8 @@ class GameState:
                 if projectile.splash_radius > 0:
                     self.explosions.append((hit_enemy.position[0], hit_enemy.position[1], 0.0))
                     for enemy in self.enemies:
+                        if not self.projectile_can_hit(projectile, enemy):
+                            continue
                         dist = ((enemy.position[0] - hit_enemy.position[0]) ** 2 + (enemy.position[1] - hit_enemy.position[1]) ** 2) ** 0.5
                         if dist <= projectile.splash_radius:
                             enemy.apply_damage(projectile.damage)
@@ -105,8 +107,6 @@ class GameState:
                 for tower in self.towers:
                     if tower.target == hit_enemy:
                         tower.apply_effects(hit_enemy)
-                projectile.alive = False
-                self.projectiles.remove(projectile)
 
         self.apply_healers()
 
@@ -161,10 +161,19 @@ class GameState:
         for enemy in self.enemies:
             if not enemy.is_alive():
                 continue
+            if not self.projectile_can_hit(projectile, enemy):
+                continue
             dist = ((enemy.position[0] - px) ** 2 + (enemy.position[1] - py) ** 2) ** 0.5
             if dist <= enemy.size() + projectile.radius:
                 return enemy
         return None
+
+    def projectile_can_hit(self, projectile: Projectile, enemy: Enemy) -> bool:
+        if enemy.stats.flying and not projectile.can_hit_flying:
+            return False
+        if not enemy.stats.flying and not projectile.can_hit_ground:
+            return False
+        return True
 
     def apply_healers(self) -> None:
         for healer in self.enemies:
