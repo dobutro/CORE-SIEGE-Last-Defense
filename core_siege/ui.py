@@ -85,8 +85,7 @@ class GameWidget(QtWidgets.QWidget):
 
     def draw_towers(self) -> None:
         for tower in self.game_state.towers:
-            pygame.draw.circle(self.surface, tower.base_stats.color, tower.position, 15)
-            pygame.draw.circle(self.surface, (20, 20, 30), tower.position, 15, 2)
+            self.draw_tower_shape(tower)
             if tower == self.selected_tower:
                 pygame.draw.circle(self.surface, (255, 255, 255), tower.position, 20, 2)
 
@@ -126,21 +125,16 @@ class GameWidget(QtWidgets.QWidget):
             pygame.draw.circle(self.surface, (255, 180, 120), (int(x), int(y)), radius, 2)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
-        if event.button() != QtCore.Qt.LeftButton:
-            return
         grid_x = int(event.position().x() // self.game_state.level.cell_size)
         grid_y = int(event.position().y() // self.game_state.level.cell_size)
-        if not self.game_state.place_tower(grid_x, grid_y):
-            tower = self.find_tower(grid_x, grid_y)
-            if tower:
-                self.set_selected_tower(tower)
-                self.tower_selected.emit(tower)
-            else:
+        if event.button() == QtCore.Qt.LeftButton:
+            if self.game_state.place_tower(grid_x, grid_y):
                 self.set_selected_tower(None)
                 self.tower_selected.emit(None)
-        else:
-            self.set_selected_tower(None)
-            self.tower_selected.emit(None)
+        elif event.button() == QtCore.Qt.RightButton:
+            tower = self.find_tower(grid_x, grid_y)
+            self.set_selected_tower(tower)
+            self.tower_selected.emit(tower)
 
     def find_tower(self, grid_x: int, grid_y: int) -> Optional[Tower]:
         pos = self.game_state.grid_to_pixel(grid_x, grid_y)
@@ -152,6 +146,29 @@ class GameWidget(QtWidgets.QWidget):
     def set_selected_tower(self, tower: Optional[Tower]) -> None:
         self.selected_tower = tower
 
+    def draw_tower_shape(self, tower: Tower) -> None:
+        x, y = tower.position
+        radius = 15
+        color = tower.base_stats.color
+        outline = (20, 20, 30)
+        if tower.base_stats.ground_only:
+            pygame.draw.circle(self.surface, color, (int(x), int(y)), radius)
+            pygame.draw.circle(self.surface, outline, (int(x), int(y)), radius, 2)
+        elif tower.base_stats.flying_only:
+            rect = pygame.Rect(0, 0, radius * 2, radius * 2)
+            rect.center = (int(x), int(y))
+            pygame.draw.rect(self.surface, color, rect)
+            pygame.draw.rect(self.surface, outline, rect, 2)
+        else:
+            points = [
+                (int(x), int(y - radius)),
+                (int(x + radius), int(y)),
+                (int(x), int(y + radius)),
+                (int(x - radius), int(y)),
+            ]
+            pygame.draw.polygon(self.surface, color, points)
+            pygame.draw.polygon(self.surface, outline, points, 2)
+
 
 class GameHud(QtWidgets.QWidget):
     """HUD with buttons and info labels."""
@@ -160,7 +177,7 @@ class GameHud(QtWidgets.QWidget):
     pause_clicked = QtCore.Signal()
     wave_clicked = QtCore.Signal()
     exit_clicked = QtCore.Signal()
-    upgrade_requested = QtCore.Signal(str)
+    upgrade_requested = QtCore.Signal()
     sell_requested = QtCore.Signal()
 
     def __init__(self, game_state: GameState, parent: Optional[QtWidgets.QWidget] = None) -> None:
@@ -192,17 +209,13 @@ class GameHud(QtWidgets.QWidget):
         self.sell_button = QtWidgets.QPushButton("Разобрать")
         self.sell_button.clicked.connect(self.sell_requested.emit)
 
-        upgrade_box = QtWidgets.QGroupBox("Улучшения")
+        upgrade_box = QtWidgets.QGroupBox("Улучшение")
         upgrade_layout = QtWidgets.QVBoxLayout()
-        self.upgrade_damage = QtWidgets.QPushButton("Урон")
-        self.upgrade_rate = QtWidgets.QPushButton("Скорость")
-        self.upgrade_range = QtWidgets.QPushButton("Радиус")
-        self.upgrade_damage.clicked.connect(lambda: self.upgrade_requested.emit("damage"))
-        self.upgrade_rate.clicked.connect(lambda: self.upgrade_requested.emit("rate"))
-        self.upgrade_range.clicked.connect(lambda: self.upgrade_requested.emit("range"))
-        upgrade_layout.addWidget(self.upgrade_damage)
-        upgrade_layout.addWidget(self.upgrade_rate)
-        upgrade_layout.addWidget(self.upgrade_range)
+        self.upgrade_info = QtWidgets.QLabel("Нет данных")
+        self.upgrade_button = QtWidgets.QPushButton("Улучшить")
+        self.upgrade_button.clicked.connect(self.upgrade_requested.emit)
+        upgrade_layout.addWidget(self.upgrade_info)
+        upgrade_layout.addWidget(self.upgrade_button)
         upgrade_box.setLayout(upgrade_layout)
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -239,10 +252,23 @@ class GameHud(QtWidgets.QWidget):
                 f"Башня: {self.selected_tower.base_stats.name} (ур. {self.selected_tower.level})"
             )
             self.sell_button.setText(f"Разобрать (+{self.selected_tower.sell_value()})")
+            next_upgrade = self.selected_tower.next_upgrade()
+            if next_upgrade:
+                upgrade_label = {
+                    "damage": "Урон",
+                    "rate": "Скорость",
+                    "range": "Радиус",
+                }.get(next_upgrade, next_upgrade)
+                self.upgrade_info.setText(
+                    f"Следующее улучшение: {upgrade_label} (+{self.selected_tower.upgrade_cost()})"
+                )
+                self.upgrade_button.setEnabled(True)
+            else:
+                self.upgrade_info.setText("Все улучшения получены")
+                self.upgrade_button.setEnabled(False)
         else:
             self.selected_label.setText("Башня: не выбрана")
             self.sell_button.setText("Разобрать")
-        self.upgrade_damage.setEnabled(has_tower)
-        self.upgrade_rate.setEnabled(has_tower)
-        self.upgrade_range.setEnabled(has_tower)
+            self.upgrade_info.setText("Выберите башню")
+            self.upgrade_button.setEnabled(False)
         self.sell_button.setEnabled(has_tower)

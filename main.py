@@ -48,10 +48,10 @@ class GameScreen(QtWidgets.QWidget):
     def on_tower_changed(self, key: str) -> None:
         self.game_state.selected_tower_key = key
 
-    def on_upgrade_requested(self, attribute: str) -> None:
+    def on_upgrade_requested(self) -> None:
         tower = self.hud.selected_tower
         if tower:
-            self.game_state.upgrade_tower(tower, attribute)
+            self.game_state.upgrade_tower(tower)
 
     def on_sell_requested(self) -> None:
         tower = self.hud.selected_tower

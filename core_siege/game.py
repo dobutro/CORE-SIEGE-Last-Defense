@@ -127,17 +127,14 @@ class GameState:
         self.towers.append(tower)
         return True
 
-    def upgrade_tower(self, tower: Tower, attribute: str) -> bool:
+    def upgrade_tower(self, tower: Tower) -> bool:
         cost = tower.upgrade_cost()
         if self.money < cost:
             return False
+        if not tower.next_upgrade():
+            return False
         self.money -= cost
-        if attribute == "damage":
-            tower.upgrade_damage()
-        elif attribute == "rate":
-            tower.upgrade_rate()
-        elif attribute == "range":
-            tower.upgrade_range()
+        tower.upgrade()
         return True
 
     def sell_tower(self, tower: Tower) -> None:

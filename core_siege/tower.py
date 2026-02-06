@@ -23,11 +23,30 @@ class TowerStats:
     laser: bool = False
     flying_only: bool = False
     ground_only: bool = False
+    upgrade_order: Tuple[str, ...] = ("damage", "rate", "range")
 
 
 TOWER_TYPES: Dict[str, TowerStats] = {
-    "пулемётная": TowerStats("Пулемётная", 6, 150, 4.0, (120, 200, 255), 45, projectile_speed=200),
-    "лазерная": TowerStats("Лазерная", 10, 140, 6.0, (255, 80, 200), 70, laser=True),
+    "пулемётная": TowerStats(
+        "Пулемётная",
+        6,
+        150,
+        4.0,
+        (120, 200, 255),
+        45,
+        projectile_speed=200,
+        upgrade_order=("rate", "damage", "range"),
+    ),
+    "лазерная": TowerStats(
+        "Лазерная",
+        10,
+        140,
+        6.0,
+        (255, 80, 200),
+        70,
+        laser=True,
+        upgrade_order=("damage", "range"),
+    ),
     "замедляющая": TowerStats(
         "Замедляющая",
         2,
@@ -39,6 +58,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         slow_factor=0.6,
         slow_duration=2.5,
         ground_only=True,
+        upgrade_order=("range", "rate"),
     ),
     "ракетная": TowerStats(
         "Ракетная",
@@ -50,6 +70,7 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         projectile_speed=160,
         splash_radius=40,
         ground_only=True,
+        upgrade_order=("damage", "range"),
     ),
 }
 
@@ -68,6 +89,7 @@ class Tower:
         self.damage_bonus = 0.0
         self.rate_bonus = 0.0
         self.range_bonus = 0.0
+        self.upgrade_step = 0
 
     def total_damage(self) -> float:
         return self.base_stats.damage + self.damage_bonus
@@ -126,6 +148,26 @@ class Tower:
 
     def upgrade_cost(self) -> int:
         return int(self.base_stats.cost * (1.5 ** self.level))
+
+    def next_upgrade(self) -> Optional[str]:
+        if self.upgrade_step >= len(self.base_stats.upgrade_order):
+            return None
+        return self.base_stats.upgrade_order[self.upgrade_step]
+
+    def upgrade(self) -> Optional[str]:
+        upgrade_type = self.next_upgrade()
+        if not upgrade_type:
+            return None
+        if upgrade_type == "damage":
+            self.damage_bonus += self.base_stats.damage * 0.3
+        elif upgrade_type == "rate":
+            self.rate_bonus += self.base_stats.rate * 0.2
+        elif upgrade_type == "range":
+            self.range_bonus += self.base_stats.range * 0.1
+        self.invested += self.upgrade_cost()
+        self.level += 1
+        self.upgrade_step += 1
+        return upgrade_type
 
     def upgrade_damage(self) -> None:
         self.damage_bonus += self.base_stats.damage * 0.3
