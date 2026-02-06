@@ -44,7 +44,7 @@ class GameWidget(QtWidgets.QWidget):
         painter.drawImage(0, 0, qimage)
 
     def draw_scene(self) -> None:
-        self.surface.fill((15, 18, 28))
+        self.surface.fill((40, 40, 40))
         self.draw_grid()
         self.draw_path()
         self.draw_base()
@@ -55,7 +55,7 @@ class GameWidget(QtWidgets.QWidget):
 
     def draw_grid(self) -> None:
         cell = self.game_state.level.cell_size
-        color = (30, 35, 50)
+        color = (55, 55, 55)
         for x in range(self.game_state.level.grid_width + 1):
             pygame.draw.line(self.surface, color, (x * cell, 0), (x * cell, self.game_state.level.pixel_height))
         for y in range(self.game_state.level.grid_height + 1):
@@ -71,7 +71,7 @@ class GameWidget(QtWidgets.QWidget):
             )
             for x, y in self.game_state.level.path
         ]
-        pygame.draw.lines(self.surface, (70, 70, 90), False, points, 26)
+        pygame.draw.lines(self.surface, (75, 75, 85), False, points, 30)
 
     def draw_base(self) -> None:
         end = self.game_state.level.path[-1]
@@ -79,13 +79,13 @@ class GameWidget(QtWidgets.QWidget):
             end[0] * self.game_state.level.cell_size + self.game_state.level.cell_size // 2,
             end[1] * self.game_state.level.cell_size + self.game_state.level.cell_size // 2,
         )
-        pygame.draw.circle(self.surface, (90, 255, 200), pos, 18)
-        pygame.draw.circle(self.surface, (40, 140, 120), pos, 12)
+        pygame.draw.circle(self.surface, (90, 255, 200), pos, 20)
+        pygame.draw.circle(self.surface, (40, 140, 120), pos, 14)
 
     def draw_towers(self) -> None:
         for tower in self.game_state.towers:
-            pygame.draw.circle(self.surface, tower.base_stats.color, tower.position, 12)
-            pygame.draw.circle(self.surface, (20, 20, 30), tower.position, 12, 2)
+            pygame.draw.circle(self.surface, tower.base_stats.color, tower.position, 15)
+            pygame.draw.circle(self.surface, (20, 20, 30), tower.position, 15, 2)
 
     def draw_enemies(self) -> None:
         for enemy in self.game_state.enemies:
@@ -101,7 +101,7 @@ class GameWidget(QtWidgets.QWidget):
 
     def draw_projectiles(self) -> None:
         for projectile in self.game_state.projectiles:
-            pygame.draw.circle(self.surface, (255, 200, 120), (int(projectile.position[0]), int(projectile.position[1])), 4)
+            pygame.draw.circle(self.surface, (255, 200, 120), (int(projectile.position[0]), int(projectile.position[1])), 3)
 
     def draw_effects(self) -> None:
         for enemy in self.game_state.enemies:

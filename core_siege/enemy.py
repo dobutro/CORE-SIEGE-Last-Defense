@@ -90,7 +90,7 @@ class Enemy:
         return (200, 200, 200)
 
     def size(self) -> int:
-        return 14 if self.stats.flying else 16
+        return 10 if self.stats.flying else 12
 
     def center(self) -> Tuple[float, float]:
         return self.position[0], self.position[1]

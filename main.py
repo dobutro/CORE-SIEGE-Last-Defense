@@ -65,7 +65,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("CORE SIEGE: Last Defense")
-        self.levels = build_levels(cell_size=48)
+        self.setStyleSheet(
+            "QWidget { background-color: #2f2f2f; color: #e0e0e0; }"
+            "QPushButton { background-color: #3d3d3d; color: #f0f0f0; padding: 6px; }"
+            "QGroupBox { color: #e0e0e0; }"
+        )
+        self.levels = build_levels(cell_size=56)
 
         self.stack = QtWidgets.QStackedWidget()
         self.setCentralWidget(self.stack)
@@ -113,8 +118,7 @@ def main() -> None:
     pygame.init()
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
-    window.resize(900, 520)
-    window.show()
+    window.showMaximized()
     sys.exit(app.exec())
 
 
