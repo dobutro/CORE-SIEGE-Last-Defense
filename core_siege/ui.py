@@ -94,16 +94,37 @@ class GameWidget(QtWidgets.QWidget):
             color = enemy.draw_color()
             size = enemy.size()
             pygame.draw.circle(self.surface, color, (int(enemy.position[0]), int(enemy.position[1])), size)
-            hp_ratio = max(enemy.hp / enemy.stats.max_hp, 0)
-            bar_width = size * 2
-            bar_x = int(enemy.position[0] - size)
-            bar_y = int(enemy.position[1] - size - 8)
-            pygame.draw.rect(self.surface, (50, 50, 50), (bar_x, bar_y, bar_width, 4))
-            pygame.draw.rect(self.surface, (80, 220, 120), (bar_x, bar_y, int(bar_width * hp_ratio), 4))
+            if enemy.shield_hp > 0:
+                pygame.draw.circle(
+                    self.surface,
+                    (120, 180, 255),
+                    (int(enemy.position[0]), int(enemy.position[1])),
+                    size + 4,
+                    2,
+                )
+            if enemy.took_damage:
+                hp_ratio = max(enemy.hp / enemy.stats.max_hp, 0)
+                bar_width = size * 2
+                bar_x = int(enemy.position[0] - size)
+                bar_y = int(enemy.position[1] - size - 8)
+                pygame.draw.rect(self.surface, (50, 50, 50), (bar_x, bar_y, bar_width, 4))
+                pygame.draw.rect(self.surface, (80, 220, 120), (bar_x, bar_y, int(bar_width * hp_ratio), 4))
+                if enemy.stats.shield_hp > 0:
+                    shield_ratio = max(enemy.shield_hp / enemy.stats.shield_hp, 0)
+                    pygame.draw.rect(
+                        self.surface,
+                        (80, 140, 220),
+                        (bar_x, bar_y - 5, int(bar_width * shield_ratio), 3),
+                    )
 
     def draw_projectiles(self) -> None:
         for projectile in self.game_state.projectiles:
-            pygame.draw.circle(self.surface, (255, 200, 120), (int(projectile.position[0]), int(projectile.position[1])), 3)
+            pygame.draw.circle(
+                self.surface,
+                (255, 200, 120),
+                (int(projectile.position[0]), int(projectile.position[1])),
+                projectile.radius,
+            )
 
     def draw_effects(self) -> None:
         for tower in self.game_state.towers:
@@ -149,22 +170,76 @@ class GameWidget(QtWidgets.QWidget):
     def draw_tower_shape(self, tower: Tower) -> None:
         x, y = tower.position
         radius = 15
-        color = tower.base_stats.color
+        color = (120, 20, 20) if tower.is_warming else tower.base_stats.color
         outline = (20, 20, 30)
+        if tower.base_stats.weapon_class == 2:
+            self.draw_class_two_shape(tower, (int(x), int(y)), radius, color, outline)
+        else:
+            self.draw_class_one_shape(tower, (int(x), int(y)), radius, color, outline)
+
+    def draw_class_one_shape(
+        self,
+        tower: Tower,
+        center: tuple[int, int],
+        radius: int,
+        color: tuple[int, int, int],
+        outline: tuple[int, int, int],
+    ) -> None:
         if tower.base_stats.ground_only:
-            pygame.draw.circle(self.surface, color, (int(x), int(y)), radius)
-            pygame.draw.circle(self.surface, outline, (int(x), int(y)), radius, 2)
+            pygame.draw.circle(self.surface, color, center, radius)
+            pygame.draw.circle(self.surface, outline, center, radius, 2)
         elif tower.base_stats.flying_only:
             rect = pygame.Rect(0, 0, radius * 2, radius * 2)
-            rect.center = (int(x), int(y))
+            rect.center = center
             pygame.draw.rect(self.surface, color, rect)
             pygame.draw.rect(self.surface, outline, rect, 2)
         else:
             points = [
-                (int(x), int(y - radius)),
-                (int(x + radius), int(y)),
-                (int(x), int(y + radius)),
-                (int(x - radius), int(y)),
+                (center[0], center[1] - radius),
+                (center[0] + radius, center[1]),
+                (center[0], center[1] + radius),
+                (center[0] - radius, center[1]),
+            ]
+            pygame.draw.polygon(self.surface, color, points)
+            pygame.draw.polygon(self.surface, outline, points, 2)
+
+    def draw_class_two_shape(
+        self,
+        tower: Tower,
+        center: tuple[int, int],
+        radius: int,
+        color: tuple[int, int, int],
+        outline: tuple[int, int, int],
+    ) -> None:
+        if tower.base_stats.ground_only:
+            points = [
+                (center[0] + radius, center[1]),
+                (center[0] + radius // 2, center[1] - radius),
+                (center[0] - radius // 2, center[1] - radius),
+                (center[0] - radius, center[1]),
+                (center[0] - radius // 2, center[1] + radius),
+                (center[0] + radius // 2, center[1] + radius),
+            ]
+            pygame.draw.polygon(self.surface, color, points)
+            pygame.draw.polygon(self.surface, outline, points, 2)
+        elif tower.base_stats.flying_only:
+            top_width = radius
+            bottom_width = radius * 2
+            height = radius * 2
+            points = [
+                (center[0] - top_width // 2, center[1] - height // 2),
+                (center[0] + top_width // 2, center[1] - height // 2),
+                (center[0] + bottom_width // 2, center[1] + height // 2),
+                (center[0] - bottom_width // 2, center[1] + height // 2),
+            ]
+            pygame.draw.polygon(self.surface, color, points)
+            pygame.draw.polygon(self.surface, outline, points, 2)
+        else:
+            points = [
+                (center[0], center[1] - radius - 4),
+                (center[0] + radius + 4, center[1]),
+                (center[0], center[1] + radius + 4),
+                (center[0] - radius - 4, center[1]),
             ]
             pygame.draw.polygon(self.surface, color, points)
             pygame.draw.polygon(self.surface, outline, points, 2)

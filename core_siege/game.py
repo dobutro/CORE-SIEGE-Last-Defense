@@ -52,6 +52,12 @@ class GameState:
                 enemies.append("обычный")
         if self.wave_number >= 4:
             enemies.append("летающий")
+        if self.wave_number >= 6:
+            enemies.append("хиллер")
+        if self.wave_number >= 7:
+            enemies.append("щитоносец")
+        if self.wave_number >= 8:
+            enemies.append("истребитель")
         return WaveConfig(enemies)
 
     def start_wave(self) -> None:
@@ -75,26 +81,34 @@ class GameState:
         for enemy in self.enemies:
             enemy.update(dt)
 
+        base_pos = self.path_pixels[-1]
         for tower in self.towers:
-            new_projectiles = tower.update(dt, self.enemies)
+            new_projectiles = tower.update(dt, self.enemies, base_pos)
             self.projectiles.extend(new_projectiles)
 
+        bounds = (self.level.pixel_width, self.level.pixel_height)
         for projectile in list(self.projectiles):
-            projectile.update(dt)
-            if projectile.hits_target():
-                if projectile.target.is_alive():
-                    if projectile.splash_radius > 0:
-                        self.explosions.append((projectile.target.position[0], projectile.target.position[1], 0.0))
-                        for enemy in self.enemies:
-                            dist = ((enemy.position[0] - projectile.target.position[0]) ** 2 + (enemy.position[1] - projectile.target.position[1]) ** 2) ** 0.5
-                            if dist <= projectile.splash_radius:
-                                enemy.apply_damage(projectile.damage)
-                    else:
-                        projectile.target.apply_damage(projectile.damage)
-                    for tower in self.towers:
-                        if tower.target == projectile.target:
-                            tower.apply_effects(projectile.target)
+            projectile.update(dt, bounds)
+            if not projectile.alive:
                 self.projectiles.remove(projectile)
+                continue
+            hit_enemy = self.find_collision(projectile)
+            if hit_enemy:
+                if projectile.splash_radius > 0:
+                    self.explosions.append((hit_enemy.position[0], hit_enemy.position[1], 0.0))
+                    for enemy in self.enemies:
+                        dist = ((enemy.position[0] - hit_enemy.position[0]) ** 2 + (enemy.position[1] - hit_enemy.position[1]) ** 2) ** 0.5
+                        if dist <= projectile.splash_radius:
+                            enemy.apply_damage(projectile.damage)
+                else:
+                    hit_enemy.apply_damage(projectile.damage)
+                for tower in self.towers:
+                    if tower.target == hit_enemy:
+                        tower.apply_effects(hit_enemy)
+                projectile.alive = False
+                self.projectiles.remove(projectile)
+
+        self.apply_healers()
 
         for enemy in list(self.enemies):
             if not enemy.is_alive():
@@ -141,6 +155,30 @@ class GameState:
         if tower in self.towers:
             self.money += tower.sell_value()
             self.towers.remove(tower)
+
+    def find_collision(self, projectile: Projectile) -> Optional[Enemy]:
+        px, py = projectile.center()
+        for enemy in self.enemies:
+            if not enemy.is_alive():
+                continue
+            dist = ((enemy.position[0] - px) ** 2 + (enemy.position[1] - py) ** 2) ** 0.5
+            if dist <= enemy.size() + projectile.radius:
+                return enemy
+        return None
+
+    def apply_healers(self) -> None:
+        for healer in self.enemies:
+            if not healer.is_alive() or not healer.stats.healer:
+                continue
+            if not healer.can_heal():
+                continue
+            for ally in self.enemies:
+                if ally.stats.flying or not ally.is_alive():
+                    continue
+                dist = ((ally.position[0] - healer.position[0]) ** 2 + (ally.position[1] - healer.position[1]) ** 2) ** 0.5
+                if dist <= healer.stats.heal_radius:
+                    ally.apply_heal(healer.stats.heal_amount)
+            healer.reset_heal_timer()
 
     def grid_to_pixel(self, grid_x: int, grid_y: int) -> Tuple[int, int]:
         return (
