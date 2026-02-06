@@ -17,6 +17,7 @@ class Projectile:
     radius: int = 3
     can_hit_flying: bool = True
     can_hit_ground: bool = True
+    pierces: bool = True
 
     def update(self, dt: float, bounds: Tuple[int, int]) -> None:
         if not self.alive:

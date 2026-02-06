@@ -59,6 +59,8 @@ class Enemy:
         self.slow_timer = 0.0
         self.heal_timer = 0.0
         self.took_damage = False
+        self.burn_timer = 0.0
+        self.burn_dps = 0.0
 
     def is_alive(self) -> bool:
         return self.hp > 0
@@ -84,6 +86,12 @@ class Enemy:
             return
         self.hp = min(self.stats.max_hp, self.hp + amount)
 
+    def apply_burn(self, duration: float, dps: float) -> None:
+        if duration <= 0 or dps <= 0:
+            return
+        self.burn_timer = max(self.burn_timer, duration)
+        self.burn_dps = max(self.burn_dps, dps)
+
     def update(self, dt: float) -> None:
         if not self.is_alive() or self.reached_end:
             return
@@ -95,6 +103,10 @@ class Enemy:
 
         if self.stats.healer:
             self.heal_timer = max(0.0, self.heal_timer - dt)
+
+        if self.burn_timer > 0:
+            self.burn_timer = max(0.0, self.burn_timer - dt)
+            self.apply_damage(self.burn_dps * dt)
 
         speed = self.stats.speed * self.slow_factor
         target_index = min(self.path_index + 1, len(self.path) - 1)

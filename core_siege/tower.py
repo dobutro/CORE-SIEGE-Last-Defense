@@ -32,6 +32,8 @@ class TowerStats:
     warmup_time: float = 0.0
     weapon_class: int = 1
     aiming_speed: float = 3.0
+    burn_duration: float = 0.0
+    burn_dps: float = 0.0
 
 
 TOWER_TYPES: Dict[str, TowerStats] = {
@@ -130,6 +132,34 @@ TOWER_TYPES: Dict[str, TowerStats] = {
         weapon_class=2,
         aiming_speed=5.0,
     ),
+    "двойная": TowerStats(
+        "Двойная",
+        9,
+        160,
+        3.0,
+        (170, 210, 255),
+        60,
+        projectile_speed=210,
+        projectile_radius=3,
+        upgrade_order=("rate", "damage", "range"),
+        aiming_speed=7.0,
+        multi_shot=2,
+        spread_deg=4.0,
+    ),
+    "огненная": TowerStats(
+        "Огненная турель",
+        6,
+        150,
+        3.6,
+        (255, 140, 120),
+        80,
+        projectile_speed=190,
+        projectile_radius=3,
+        upgrade_order=("damage", "rate", "range"),
+        aiming_speed=6.0,
+        burn_duration=3.0,
+        burn_dps=4.0,
+    ),
 }
 
 
@@ -146,6 +176,7 @@ class Tower:
         self.warmup_timer = 0.0
         self.is_warming = False
         self.angle = 0.0
+        self.fire_module = False
 
         self.damage_bonus = 0.0
         self.rate_bonus = 0.0
@@ -311,6 +342,16 @@ class Tower:
                     radius=self.base_stats.projectile_radius,
                     can_hit_flying=not self.base_stats.ground_only,
                     can_hit_ground=not self.base_stats.flying_only,
+                    pierces=not self.base_stats.ground_only,
                 )
             )
         return projectiles
+
+    def can_accept_fire_module(self) -> bool:
+        if self.base_stats.splash_radius > 0:
+            return False
+        if self.base_stats.laser:
+            return False
+        if self.base_stats.burn_duration > 0:
+            return False
+        return True

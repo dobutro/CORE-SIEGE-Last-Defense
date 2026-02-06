@@ -20,12 +20,16 @@ class MainMenu(QtWidgets.QWidget):
         self.subtitle = QtWidgets.QLabel("Уровни • Изученные юниты • Настройки")
         self.subtitle.setStyleSheet("font-size: 14px; color: #cfcfcf;")
 
-        play_button = QtWidgets.QPushButton("Играть")
+        play_button = QtWidgets.QPushButton("Уровни")
         upgrades_button = QtWidgets.QPushButton("Улучшения")
+        settings_button = QtWidgets.QPushButton("Настройки")
+        info_button = QtWidgets.QPushButton("Информация о юнитах")
         exit_button = QtWidgets.QPushButton("Выход")
 
         play_button.clicked.connect(self.play_clicked.emit)
         upgrades_button.clicked.connect(self.upgrades_clicked.emit)
+        settings_button.clicked.connect(self.upgrades_clicked.emit)
+        info_button.clicked.connect(self.upgrades_clicked.emit)
         exit_button.clicked.connect(self.exit_clicked.emit)
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -36,6 +40,8 @@ class MainMenu(QtWidgets.QWidget):
         layout.addSpacing(20)
         layout.addWidget(play_button)
         layout.addWidget(upgrades_button)
+        layout.addWidget(settings_button)
+        layout.addWidget(info_button)
         layout.addWidget(exit_button)
         layout.addStretch()
 
@@ -49,24 +55,31 @@ class MainMenu(QtWidgets.QWidget):
         self.units = []
         width = max(1, self.width())
         height = max(1, self.height())
+        self.paths = [
+            [(0, height * 0.35), (width * 0.5, height * 0.35), (width, height * 0.35)],
+            [(0, height * 0.55), (width * 0.3, height * 0.55), (width * 0.7, height * 0.2), (width, height * 0.2)],
+            [(0, height * 0.75), (width * 0.4, height * 0.75), (width * 0.6, height * 0.6), (width, height * 0.6)],
+        ]
         colors = [(180, 220, 255), (200, 200, 200), (255, 220, 100)]
-        for i in range(10):
+        for i in range(12):
+            path = self.paths[i % len(self.paths)]
             self.units.append(
                 {
-                    "x": (i * 120) % width,
-                    "y": 80 + (i % 4) * 60,
-                    "speed": 25 + i * 3,
+                    "path": path,
+                    "segment": 0,
+                    "t": (i * 0.1) % 1.0,
+                    "speed": 0.12 + i * 0.01,
                     "size": 10 + (i % 3) * 2,
                     "color": colors[i % len(colors)],
                 }
             )
 
     def tick(self) -> None:
-        width = max(1, self.width())
         for unit in self.units:
-            unit["x"] += unit["speed"] * 0.04
-            if unit["x"] > width + 40:
-                unit["x"] = -40
+            unit["t"] += unit["speed"] * 0.04
+            while unit["t"] >= 1.0:
+                unit["t"] -= 1.0
+                unit["segment"] = (unit["segment"] + 1) % (len(unit["path"]) - 1)
         self.update()
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
@@ -78,9 +91,13 @@ class MainMenu(QtWidgets.QWidget):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
         for unit in self.units:
+            start = unit["path"][unit["segment"]]
+            end = unit["path"][unit["segment"] + 1]
+            x = start[0] + (end[0] - start[0]) * unit["t"]
+            y = start[1] + (end[1] - start[1]) * unit["t"]
             painter.setBrush(QtGui.QColor(*unit["color"]))
             painter.setPen(QtCore.Qt.NoPen)
-            painter.drawEllipse(QtCore.QPointF(unit["x"], unit["y"]), unit["size"], unit["size"])
+            painter.drawEllipse(QtCore.QPointF(x, y), unit["size"], unit["size"])
 
 
 class MapSelectMenu(QtWidgets.QWidget):

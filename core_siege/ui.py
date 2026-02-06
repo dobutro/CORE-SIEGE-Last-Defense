@@ -89,6 +89,10 @@ class GameWidget(QtWidgets.QWidget):
             self.draw_tower_shape(tower)
             if tower == self.selected_tower:
                 pygame.draw.circle(self.surface, (255, 255, 255), tower.position, 20, 2)
+        if self.game_state.fire_module_selected:
+            for tower in self.game_state.towers:
+                if self.game_state.can_apply_fire_module(tower):
+                    pygame.draw.circle(self.surface, (100, 255, 120), tower.position, 20, 2)
 
     def draw_enemies(self) -> None:
         for enemy in self.game_state.enemies:
@@ -157,6 +161,11 @@ class GameWidget(QtWidgets.QWidget):
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
         grid_x = int(event.position().x() // self.game_state.level.cell_size)
         grid_y = int(event.position().y() // self.game_state.level.cell_size)
+        if event.button() == QtCore.Qt.LeftButton and self.game_state.fire_module_selected:
+            tower = self.find_tower(grid_x, grid_y)
+            if tower and self.game_state.apply_fire_module(tower):
+                self.game_state.fire_module_selected = False
+            return
         if event.button() == QtCore.Qt.LeftButton:
             if self.game_state.place_tower(grid_x, grid_y):
                 self.set_selected_tower(None)
@@ -182,7 +191,11 @@ class GameWidget(QtWidgets.QWidget):
         color = tower.base_stats.color
         outline = (20, 20, 30)
         self.draw_class_one_shape(tower, (int(x), int(y)), radius, color, outline)
-        self.draw_tower_barrel(tower, (int(x), int(y)), radius)
+        if tower.base_stats.name == "Двойная":
+            self.draw_tower_barrel(tower, (int(x), int(y)), radius, offset=4)
+            self.draw_tower_barrel(tower, (int(x), int(y)), radius, offset=-4)
+        else:
+            self.draw_tower_barrel(tower, (int(x), int(y)), radius)
         if tower.base_stats.name == "Испепеление":
             square_color = (140, 20, 20) if tower.is_warming else (70, 70, 70)
             inner = pygame.Rect(0, 0, radius, radius)
@@ -215,44 +228,32 @@ class GameWidget(QtWidgets.QWidget):
             pygame.draw.polygon(self.surface, color, points)
             pygame.draw.polygon(self.surface, outline, points, 2)
 
-    def draw_tower_barrel(self, tower: Tower, center: tuple[int, int], radius: int) -> None:
+    def draw_tower_barrel(self, tower: Tower, center: tuple[int, int], radius: int, offset: int = 0) -> None:
         length = radius + 6
-        end_x = center[0] + int(math.cos(tower.angle) * length)
-        end_y = center[1] + int(math.sin(tower.angle) * length)
-        pygame.draw.line(self.surface, (230, 230, 230), center, (end_x, end_y), 3)
+        perp_x = -math.sin(tower.angle) * offset
+        perp_y = math.cos(tower.angle) * offset
+        start_x = center[0] + int(perp_x)
+        start_y = center[1] + int(perp_y)
+        end_x = start_x + int(math.cos(tower.angle) * length)
+        end_y = start_y + int(math.sin(tower.angle) * length)
+        pygame.draw.line(self.surface, (230, 230, 230), (start_x, start_y), (end_x, end_y), 3)
 
 
-class GameHud(QtWidgets.QWidget):
-    """HUD with buttons and info labels."""
+class TopBar(QtWidgets.QWidget):
+    """Top bar with status and main controls."""
 
-    tower_changed = QtCore.Signal(str)
     pause_clicked = QtCore.Signal()
     wave_clicked = QtCore.Signal()
     exit_clicked = QtCore.Signal()
-    upgrade_requested = QtCore.Signal()
-    sell_requested = QtCore.Signal()
 
     def __init__(self, game_state: GameState, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self.game_state = game_state
-        self.selected_tower: Optional[Tower] = None
 
         self.money_label = QtWidgets.QLabel()
-        self.hp_label = QtWidgets.QLabel()
         self.wave_label = QtWidgets.QLabel()
-        self.selected_label = QtWidgets.QLabel("Башня: не выбрана")
-
-        self.tower_buttons = {}
-        tower_box = QtWidgets.QGroupBox("Башни")
-        tower_layout = QtWidgets.QVBoxLayout()
-        for key, stats in TOWER_TYPES.items():
-            button = QtWidgets.QPushButton(f"{stats.name} ({stats.cost})")
-            button.clicked.connect(lambda _, k=key: self.tower_changed.emit(k))
-            if stats.weapon_class == 2:
-                button.setStyleSheet("border: 2px solid #f2d34a;")
-            tower_layout.addWidget(button)
-            self.tower_buttons[key] = button
-        tower_box.setLayout(tower_layout)
+        self.level_label = QtWidgets.QLabel(game_state.level.name)
+        self.level_label.setStyleSheet("font-weight: bold;")
 
         self.pause_button = QtWidgets.QPushButton("Пауза")
         self.pause_button.clicked.connect(self.pause_clicked.emit)
@@ -260,69 +261,117 @@ class GameHud(QtWidgets.QWidget):
         self.wave_button.clicked.connect(self.wave_clicked.emit)
         self.exit_button = QtWidgets.QPushButton("В меню")
         self.exit_button.clicked.connect(self.exit_clicked.emit)
-        self.sell_button = QtWidgets.QPushButton("Разобрать")
-        self.sell_button.clicked.connect(self.sell_requested.emit)
 
-        upgrade_box = QtWidgets.QGroupBox("Улучшение")
-        upgrade_layout = QtWidgets.QVBoxLayout()
-        self.upgrade_info = QtWidgets.QLabel("Нет данных")
-        self.upgrade_button = QtWidgets.QPushButton("Улучшить")
-        self.upgrade_button.clicked.connect(self.upgrade_requested.emit)
-        upgrade_layout.addWidget(self.upgrade_info)
-        upgrade_layout.addWidget(self.upgrade_button)
-        upgrade_box.setLayout(upgrade_layout)
-
-        layout = QtWidgets.QVBoxLayout(self)
+        layout = QtWidgets.QHBoxLayout(self)
         layout.addWidget(self.money_label)
-        layout.addWidget(self.hp_label)
         layout.addWidget(self.wave_label)
-        layout.addWidget(self.selected_label)
+        layout.addStretch()
+        layout.addWidget(self.level_label)
+        layout.addStretch()
         layout.addWidget(self.pause_button)
         layout.addWidget(self.wave_button)
         layout.addWidget(self.exit_button)
-        layout.addWidget(tower_box)
-        layout.addWidget(upgrade_box)
-        layout.addWidget(self.sell_button)
-        layout.addStretch()
-        self.setFixedWidth(220)
-        self.update_labels()
-
-    def update_labels(self) -> None:
-        self.money_label.setText(f"Кредиты: {self.game_state.money}")
-        self.hp_label.setText(f"Ядро: {self.game_state.base_hp} HP")
-        self.wave_label.setText(f"Волна: {self.game_state.wave_number}")
-
-    def set_selected_tower(self, tower: Optional[Tower]) -> None:
-        self.selected_tower = tower
+        self.setFixedHeight(50)
         self.refresh()
 
     def refresh(self) -> None:
-        self.update_labels()
+        self.money_label.setText(f"Кредиты: {self.game_state.money}")
+        self.wave_label.setText(f"Волна: {self.game_state.wave_number}")
+        self.level_label.setText(self.game_state.level.name)
         self.wave_button.setEnabled(not self.game_state.wave_in_progress)
         self.pause_button.setText("Продолжить" if self.game_state.paused else "Пауза")
+
+
+class BottomPanel(QtWidgets.QWidget):
+    """Bottom panel with tabs."""
+
+    tower_changed = QtCore.Signal(str)
+    upgrade_requested = QtCore.Signal()
+    sell_requested = QtCore.Signal()
+    module_selected = QtCore.Signal()
+    module_applied = QtCore.Signal()
+
+    def __init__(self, game_state: GameState, parent: Optional[QtWidgets.QWidget] = None) -> None:
+        super().__init__(parent)
+        self.game_state = game_state
+        self.selected_tower: Optional[Tower] = None
+
+        self.tabs = QtWidgets.QTabWidget()
+        self.towers_tab = QtWidgets.QWidget()
+        self.modules_tab = QtWidgets.QWidget()
+        self.selected_tab = QtWidgets.QWidget()
+
+        self.tabs.addTab(self.towers_tab, "Башни")
+        self.tabs.addTab(self.modules_tab, "Модули")
+        self.tabs.addTab(self.selected_tab, "Башня")
+
+        self.tabs.setTabEnabled(2, False)
+
+        towers_layout = QtWidgets.QHBoxLayout(self.towers_tab)
+        for key, stats in TOWER_TYPES.items():
+            button = QtWidgets.QPushButton(f"{stats.name} ({stats.cost})")
+            button.clicked.connect(lambda _, k=key: self.tower_changed.emit(k))
+            if stats.weapon_class == 2:
+                button.setStyleSheet("border: 2px solid #f2d34a;")
+            towers_layout.addWidget(button)
+
+        modules_layout = QtWidgets.QVBoxLayout(self.modules_tab)
+        self.fire_module_button = QtWidgets.QPushButton(f"Огненный модуль ({self.game_state.fire_module_cost})")
+        self.fire_module_button.clicked.connect(self.module_selected.emit)
+        modules_layout.addWidget(self.fire_module_button)
+        modules_layout.addStretch()
+
+        selected_layout = QtWidgets.QVBoxLayout(self.selected_tab)
+        self.selected_label = QtWidgets.QLabel("Башня: не выбрана")
+        self.stats_label = QtWidgets.QLabel("Характеристики: -")
+        self.upgrade_info = QtWidgets.QLabel("Нет данных")
+        self.upgrade_button = QtWidgets.QPushButton("Улучшить")
+        self.upgrade_button.clicked.connect(self.upgrade_requested.emit)
+        self.sell_button = QtWidgets.QPushButton("Разобрать")
+        self.sell_button.clicked.connect(self.sell_requested.emit)
+        selected_layout.addWidget(self.selected_label)
+        selected_layout.addWidget(self.stats_label)
+        selected_layout.addWidget(self.upgrade_info)
+        selected_layout.addWidget(self.upgrade_button)
+        selected_layout.addWidget(self.sell_button)
+        selected_layout.addStretch()
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(self.tabs)
+        self.setFixedHeight(220)
+        self.refresh()
+
+    def set_selected_tower(self, tower: Optional[Tower]) -> None:
+        self.selected_tower = tower
+        if tower:
+            self.tabs.setTabEnabled(2, True)
+            self.tabs.setCurrentWidget(self.selected_tab)
+        else:
+            self.tabs.setTabEnabled(2, False)
+            self.tabs.setCurrentWidget(self.towers_tab)
+        self.refresh()
+
+    def refresh(self) -> None:
         has_tower = self.selected_tower is not None
         if has_tower:
-            self.selected_label.setText(
-                f"Башня: {self.selected_tower.base_stats.name} (ур. {self.selected_tower.level})"
+            tower = self.selected_tower
+            self.selected_label.setText(f"Башня: {tower.base_stats.name} (ур. {tower.level})")
+            self.stats_label.setText(
+                f"Урон: {tower.total_damage():.1f} | Скорость: {tower.total_rate():.1f} | Радиус: {tower.total_range():.0f}"
             )
-            self.sell_button.setText(f"Разобрать (+{self.selected_tower.sell_value()})")
-            next_upgrade = self.selected_tower.next_upgrade()
+            self.sell_button.setText(f"Разобрать (+{tower.sell_value()})")
+            next_upgrade = tower.next_upgrade()
             if next_upgrade:
-                upgrade_label = {
-                    "damage": "Урон",
-                    "rate": "Скорость",
-                    "range": "Радиус",
-                }.get(next_upgrade, next_upgrade)
-                self.upgrade_info.setText(
-                    f"Следующее улучшение: {upgrade_label} (+{self.selected_tower.upgrade_cost()})"
-                )
+                upgrade_label = {"damage": "Урон", "rate": "Скорость", "range": "Радиус"}.get(next_upgrade, next_upgrade)
+                self.upgrade_info.setText(f"Следующее улучшение: {upgrade_label} (+{tower.upgrade_cost()})")
                 self.upgrade_button.setEnabled(True)
             else:
                 self.upgrade_info.setText("Все улучшения получены")
                 self.upgrade_button.setEnabled(False)
         else:
             self.selected_label.setText("Башня: не выбрана")
-            self.sell_button.setText("Разобрать")
+            self.stats_label.setText("Характеристики: -")
             self.upgrade_info.setText("Выберите башню")
             self.upgrade_button.setEnabled(False)
+            self.sell_button.setText("Разобрать")
         self.sell_button.setEnabled(has_tower)

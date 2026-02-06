@@ -34,6 +34,8 @@ class GameState:
         self.game_over = False
         self.wave_cooldown = 0.0
         self.explosions: List[Tuple[float, float, float]] = []
+        self.fire_module_cost = 140
+        self.fire_module_selected = False
 
         self.path_pixels = self.level.path_pixels()
 
@@ -107,6 +109,9 @@ class GameState:
                 for tower in self.towers:
                     if tower.target == hit_enemy:
                         tower.apply_effects(hit_enemy)
+                        self.apply_fire_effect(tower, hit_enemy)
+                if not projectile.pierces:
+                    projectile.alive = False
 
         self.apply_healers()
 
@@ -156,6 +161,23 @@ class GameState:
             self.money += tower.sell_value()
             self.towers.remove(tower)
 
+    def toggle_fire_module(self) -> None:
+        self.fire_module_selected = not self.fire_module_selected
+
+    def can_apply_fire_module(self, tower: Tower) -> bool:
+        if not tower.can_accept_fire_module():
+            return False
+        return not tower.fire_module
+
+    def apply_fire_module(self, tower: Tower) -> bool:
+        if self.money < self.fire_module_cost:
+            return False
+        if not self.can_apply_fire_module(tower):
+            return False
+        self.money -= self.fire_module_cost
+        tower.fire_module = True
+        return True
+
     def find_collision(self, projectile: Projectile) -> Optional[Enemy]:
         px, py = projectile.center()
         for enemy in self.enemies:
@@ -188,6 +210,12 @@ class GameState:
                 if dist <= healer.stats.heal_radius:
                     ally.apply_heal(healer.stats.heal_amount)
             healer.reset_heal_timer()
+
+    def apply_fire_effect(self, tower: Tower, enemy: Enemy) -> None:
+        if tower.base_stats.burn_duration > 0:
+            enemy.apply_burn(tower.base_stats.burn_duration, tower.base_stats.burn_dps)
+        if tower.fire_module:
+            enemy.apply_burn(3.0, 4.0)
 
     def grid_to_pixel(self, grid_x: int, grid_y: int) -> Tuple[int, int]:
         return (
